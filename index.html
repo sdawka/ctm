@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Interactive Civic Tech Montreal Theory of Change canvas" />
+    <title>Civic Tech Montreal · Theory of Change</title>
+  </head>
+  <body>
+    <header class="app-bar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">↗</span>
+        <div>
+          <p class="mono-label">Digital workshop canvas</p>
+          <h1>Civic Tech Montreal · Theory of Change</h1>
+        </div>
+      </div>
+      <div class="toolbar" aria-label="Canvas controls">
+        <label class="identity-control">
+          <span>Working as</span>
+          <input id="working-as" list="contributors" placeholder="Your name" />
+          <datalist id="contributors"></datalist>
+        </label>
+        <label class="search-control">
+          <span class="sr-only">Search notes</span>
+          <input id="search" type="search" placeholder="Search notes…" />
+        </label>
+        <button class="button" id="toggle-connections" type="button">Hide connections</button>
+        <button class="button" id="connect-mode" type="button">Connect notes</button>
+        <button class="button primary" id="open-add-note" type="button">+ Add note</button>
+        <button class="icon-button" id="more-actions" type="button" aria-label="More actions">•••</button>
+        <div class="more-menu" id="more-menu" hidden>
+          <button type="button" id="export">Export JSON</button>
+          <button type="button" id="print">Print / PDF</button>
+          <button type="button" id="reset">Reset source</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro-grid">
+        <article class="intro-card">
+          <p class="mono-label">From audience to ultimate outcome</p>
+          <h2>Trace the logic, not just the buckets.</h2>
+          <p>
+            Each curve is a causal claim. Select any note to isolate its logic chain, or choose
+            <strong>Connect notes</strong> and click a cause followed by its effect.
+          </p>
+          <a href="https://www.figma.com/board/QTmdNq6DBWgYt0530P88sj/Theory-of-Change-Workshop?node-id=0-1&t=sQZS9NrGuvS2mUyw-0" target="_blank" rel="noreferrer">Open source FigJam ↗</a>
+        </article>
+        <aside class="logic-panel" id="logic-panel" aria-live="polite">
+          <p class="mono-label">Logic inspector</p>
+          <h2>Select a note</h2>
+          <p>Its incoming causes and outgoing effects will appear here while unrelated paths fade.</p>
+        </aside>
+      </section>
+
+      <section class="connection-status" id="connection-status" hidden aria-live="polite">
+        <span class="pulse"></span>
+        <strong id="connection-message">Choose a cause note.</strong>
+        <button id="cancel-connect" type="button">Cancel</button>
+      </section>
+
+      <section class="board-shell">
+        <div class="board-summary">
+          <div><strong id="note-count">0</strong><span>notes</span></div>
+          <div><strong id="connection-count">0</strong><span>causal links</span></div>
+          <p>Click a note to inspect · drag to move stage · double-click text to edit</p>
+        </div>
+        <div class="board-scroll" id="board-scroll">
+          <div class="board-surface" id="board-surface">
+            <svg class="connection-layer" id="connection-layer" aria-label="Causal connections"></svg>
+            <div class="columns" id="columns"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="add-note-dialog">
+      <form id="add-note-form" method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p class="mono-label">Contribute to the model</p>
+            <h2>Add a note as someone</h2>
+          </div>
+          <button class="icon-button" value="cancel" formmethod="dialog" aria-label="Close">×</button>
+        </div>
+        <label>
+          Your name
+          <input id="note-author" name="author" list="contributors" required placeholder="e.g. Sahil" />
+        </label>
+        <label>
+          Causal stage
+          <select id="note-stage" name="stage" required></select>
+        </label>
+        <label>
+          Note
+          <textarea id="note-text" name="text" required rows="5" placeholder="What belongs in this stage?"></textarea>
+        </label>
+        <label>
+          Note color
+          <select id="note-color" name="color">
+            <option value="yellow">Workshop idea · yellow</option>
+            <option value="blue">Engagement · blue</option>
+            <option value="teal">Community practice · teal</option>
+            <option value="purple">Learning & projects · purple</option>
+            <option value="orange">Organizing capacity · orange</option>
+            <option value="gray">Outreach · gray</option>
+            <option value="green">Audience · green</option>
+          </select>
+        </label>
+        <div class="dialog-actions">
+          <button class="button" value="cancel" formmethod="dialog">Cancel</button>
+          <button class="button primary" value="default" type="submit">Add to canvas</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
