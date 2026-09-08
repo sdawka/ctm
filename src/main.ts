@@ -42,6 +42,8 @@ function element<T extends Element>(selector: string): T {
 const columnsElement = element<HTMLDivElement>('#columns')
 const surfaceElement = element<HTMLDivElement>('#board-surface')
 const boardScroll = element<HTMLDivElement>('#board-scroll')
+const stageHeaderViewport = element<HTMLDivElement>('#stage-header-viewport')
+const stageHeadersElement = element<HTMLDivElement>('#stage-headers')
 const svgElement = element<SVGSVGElement>('#connection-layer')
 const logicPanel = element<HTMLElement>('#logic-panel')
 const searchInput = element<HTMLInputElement>('#search')
@@ -58,6 +60,8 @@ const stageSelect = element<HTMLSelectElement>('#note-stage')
 const colorSelect = element<HTMLSelectElement>('#note-color')
 const textInput = element<HTMLTextAreaElement>('#note-text')
 const toastElement = element<HTMLElement>('#toast')
+const moreActionsButton = element<HTMLButtonElement>('#more-actions')
+const moreMenu = element<HTMLElement>('#more-menu')
 
 let toastTimer: number | undefined
 let draggingNoteId: string | null = null
@@ -132,23 +136,37 @@ function noteMarkup(note: TheoryNote, ui: UiState): string {
     </article>`
 }
 
+function stageHeaderId(stageId: string): string {
+  return `stage-header-${stageId}`
+}
+
+function syncStageHeaderScroll(): void {
+  const width = `${boardScroll.clientWidth}px`
+  if (stageHeaderViewport.style.width !== width) stageHeaderViewport.style.width = width
+  stageHeaderViewport.scrollLeft = boardScroll.scrollLeft
+}
+
 function renderBoard(): void {
   const canvas = canvasStore.$canvas.get()
   const ui = $ui.get()
   const previousScroll = { left: boardScroll.scrollLeft, top: boardScroll.scrollTop }
+  const stages = canvas.stages.slice().sort((left, right) => left.order - right.order)
 
-  columnsElement.innerHTML = canvas.stages
-    .slice()
-    .sort((left, right) => left.order - right.order)
-    .map((stage, index) => {
+  stageHeadersElement.innerHTML = stages
+    .map(
+      (stage, index) => `
+        <header class="stage-header" id="${stageHeaderId(stage.id)}" title="${escapeHtml(stage.description)}" aria-label="Stage ${index + 1}: ${escapeHtml(stage.title)}. ${escapeHtml(stage.description)}">
+          <p class="mono-label">${String(index + 1).padStart(2, '0')}</p>
+          <h3>${escapeHtml(stage.title)}</h3>
+        </header>`,
+    )
+    .join('')
+
+  columnsElement.innerHTML = stages
+    .map((stage) => {
       const stageNotes = canvas.notes.filter((note) => note.stageId === stage.id)
       return `
-        <section class="column" data-stage="${stage.id}">
-          <header class="column-head">
-            <p class="mono-label">0${index + 1} · causal stage</p>
-            <h3>${escapeHtml(stage.title)}</h3>
-            <p>${escapeHtml(stage.description)}</p>
-          </header>
+        <section class="column" data-stage="${stage.id}" aria-labelledby="${stageHeaderId(stage.id)}">
           <div class="column-notes" data-drop-stage="${stage.id}">
             ${stageNotes.map((note) => noteMarkup(note, ui)).join('')}
           </div>
@@ -165,7 +183,10 @@ function renderBoard(): void {
   bindBoardEvents()
 
   boardScroll.scrollTo(previousScroll)
-  requestAnimationFrame(drawConnections)
+  requestAnimationFrame(() => {
+    syncStageHeaderScroll()
+    drawConnections()
+  })
 }
 
 function renderContributorOptions(): void {
@@ -425,8 +446,7 @@ function revealSelectedWithinBoard(): void {
 
   const selectedRect = selected.getBoundingClientRect()
   const boardRect = boardScroll.getBoundingClientRect()
-  const header = selected.closest('.column')?.querySelector<HTMLElement>('.column-head')
-  const topInset = Math.max(boardRect.top, header?.getBoundingClientRect().bottom ?? boardRect.top) + 16
+  const topInset = boardRect.top + 16
   const bottomInset = boardRect.bottom - 16
   const availableHeight = bottomInset - topInset
   const leftDelta =
@@ -513,9 +533,28 @@ element<HTMLButtonElement>('#cancel-connect').addEventListener('click', () => {
   $ui.set({ ...$ui.get(), connectionMode: false, connectionSourceId: null, selectedNoteId: null })
 })
 element<HTMLButtonElement>('#open-add-note').addEventListener('click', () => openAddDialog())
-element<HTMLButtonElement>('#more-actions').addEventListener('click', () => {
-  const menu = element<HTMLElement>('#more-menu')
-  menu.hidden = !menu.hidden
+function setMoreMenuOpen(open: boolean): void {
+  moreMenu.hidden = !open
+  moreActionsButton.setAttribute('aria-expanded', String(open))
+}
+
+moreActionsButton.addEventListener('click', () => {
+  setMoreMenuOpen(moreMenu.hidden)
+})
+moreMenu.addEventListener('click', (event) => {
+  const action = (event.target as Element).closest<HTMLButtonElement>('button')
+  if (!action) return
+  setMoreMenuOpen(false)
+  if (action.id !== 'export' && action.id !== 'print') moreActionsButton.focus()
+})
+document.addEventListener('click', (event) => {
+  const target = event.target as Node
+  if (!moreMenu.contains(target) && !moreActionsButton.contains(target)) setMoreMenuOpen(false)
+})
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || moreMenu.hidden) return
+  setMoreMenuOpen(false)
+  moreActionsButton.focus()
 })
 element<HTMLButtonElement>('#export').addEventListener('click', () => {
   const payload = JSON.stringify(canvasStore.$canvas.get().toJSON(), null, 2)
@@ -537,14 +576,28 @@ stageSelect.addEventListener('change', () => {
   const stage = canvasStore.$canvas.get().stages.find((item) => item.id === stageSelect.value)
   colorSelect.value = stage?.defaultColor === 'vision' ? 'purple' : (stage?.defaultColor ?? 'yellow')
 })
-boardScroll.addEventListener('scroll', () => requestAnimationFrame(drawConnections))
-window.addEventListener('resize', () => requestAnimationFrame(drawConnections))
+boardScroll.addEventListener('scroll', () =>
+  requestAnimationFrame(() => {
+    syncStageHeaderScroll()
+    drawConnections()
+  }),
+)
+window.addEventListener('resize', () =>
+  requestAnimationFrame(() => {
+    syncStageHeaderScroll()
+    drawConnections()
+  }),
+)
 new ResizeObserver(() => {
   revealSelectedWithinBoard()
-  requestAnimationFrame(drawConnections)
+  requestAnimationFrame(() => {
+    syncStageHeaderScroll()
+    drawConnections()
+  })
 }).observe(boardScroll)
 
 populateStageSelect()
+setMoreMenuOpen(false)
 canvasStore.$canvas.subscribe(() => renderBoard())
 
 let previousUi: UiState | undefined

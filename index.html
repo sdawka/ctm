@@ -10,26 +10,31 @@
     <header class="app-bar">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">↗</span>
-        <div>
-          <p class="mono-label">Digital workshop canvas</p>
-          <h1>Civic Tech Montreal · Theory of Change</h1>
-        </div>
+        <h1>Civic Tech Montreal <span>· Theory of Change</span></h1>
       </div>
       <div class="toolbar" aria-label="Canvas controls">
-        <label class="identity-control">
-          <span>Working as</span>
-          <input id="working-as" list="contributors" placeholder="Your name" />
-          <datalist id="contributors"></datalist>
-        </label>
         <label class="search-control">
           <span class="sr-only">Search notes</span>
           <input id="search" type="search" placeholder="Search notes…" />
         </label>
-        <button class="button" id="toggle-connections" type="button">Hide connections</button>
         <button class="button" id="connect-mode" type="button">Connect notes</button>
         <button class="button primary" id="open-add-note" type="button">+ Add note</button>
         <button class="icon-button" id="more-actions" type="button" aria-label="More actions">•••</button>
         <div class="more-menu" id="more-menu" hidden>
+          <label class="identity-control">
+            <span>Working as</span>
+            <input id="working-as" list="contributors" placeholder="Your name" />
+          </label>
+          <datalist id="contributors"></datalist>
+          <button type="button" id="toggle-connections">Hide connections</button>
+          <div class="menu-counts" aria-label="Canvas totals">
+            <span><strong id="note-count">0</strong> notes</span>
+            <span><strong id="connection-count">0</strong> causal links</span>
+          </div>
+          <details class="canvas-help">
+            <summary>How this canvas works</summary>
+            <p>Each curve is a causal claim. Select a note to inspect its logic chain, or choose <strong>Connect notes</strong> and select a cause followed by its effect. <a href="https://www.figma.com/board/QTmdNq6DBWgYt0530P88sj/Theory-of-Change-Workshop?node-id=0-1&t=sQZS9NrGuvS2mUyw-0" target="_blank" rel="noreferrer">Open source FigJam ↗</a></p>
+          </details>
           <button type="button" id="export">Export JSON</button>
           <button type="button" id="print">Print / PDF</button>
           <button type="button" id="reset">Reset source</button>
@@ -40,11 +45,6 @@
     <main>
       <section class="workspace">
         <div class="canvas-main">
-          <details class="canvas-help">
-            <summary>How this canvas works</summary>
-            <p>Each curve is a causal claim. Select a note to inspect its logic chain, or choose <strong>Connect notes</strong> and select a cause followed by its effect. <a href="https://www.figma.com/board/QTmdNq6DBWgYt0530P88sj/Theory-of-Change-Workshop?node-id=0-1&t=sQZS9NrGuvS2mUyw-0" target="_blank" rel="noreferrer">Open source FigJam ↗</a></p>
-          </details>
-
           <section class="connection-status" id="connection-status" hidden aria-live="polite">
             <span class="pulse"></span>
             <strong id="connection-message">Choose a cause note.</strong>
@@ -52,11 +52,7 @@
           </section>
 
           <section class="board-shell">
-            <div class="board-summary">
-              <div><strong id="note-count">0</strong><span>notes</span></div>
-              <div><strong id="connection-count">0</strong><span>causal links</span></div>
-              <p>Click a note to inspect · drag to move stage · double-click text to edit</p>
-            </div>
+            <div class="stage-header-viewport" id="stage-header-viewport"><div class="stage-headers" id="stage-headers"></div></div>
             <div class="board-scroll" id="board-scroll">
               <div class="board-surface" id="board-surface">
                 <svg class="connection-layer" id="connection-layer" aria-label="Causal connections"></svg>
