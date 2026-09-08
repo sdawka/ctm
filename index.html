@@ -38,41 +38,34 @@
     </header>
 
     <main>
-      <section class="intro-grid">
-        <article class="intro-card">
-          <p class="mono-label">From audience to ultimate outcome</p>
-          <h2>Trace the logic, not just the buckets.</h2>
-          <p>
-            Each curve is a causal claim. Select any note to isolate its logic chain, or choose
-            <strong>Connect notes</strong> and click a cause followed by its effect.
-          </p>
-          <a href="https://www.figma.com/board/QTmdNq6DBWgYt0530P88sj/Theory-of-Change-Workshop?node-id=0-1&t=sQZS9NrGuvS2mUyw-0" target="_blank" rel="noreferrer">Open source FigJam ↗</a>
-        </article>
-        <aside class="logic-panel" id="logic-panel" aria-live="polite">
-          <p class="mono-label">Logic inspector</p>
-          <h2>Select a note</h2>
-          <p>Its incoming causes and outgoing effects will appear here while unrelated paths fade.</p>
-        </aside>
-      </section>
+      <section class="workspace">
+        <div class="canvas-main">
+          <details class="canvas-help">
+            <summary>How this canvas works</summary>
+            <p>Each curve is a causal claim. Select a note to inspect its logic chain, or choose <strong>Connect notes</strong> and select a cause followed by its effect. <a href="https://www.figma.com/board/QTmdNq6DBWgYt0530P88sj/Theory-of-Change-Workshop?node-id=0-1&t=sQZS9NrGuvS2mUyw-0" target="_blank" rel="noreferrer">Open source FigJam ↗</a></p>
+          </details>
 
-      <section class="connection-status" id="connection-status" hidden aria-live="polite">
-        <span class="pulse"></span>
-        <strong id="connection-message">Choose a cause note.</strong>
-        <button id="cancel-connect" type="button">Cancel</button>
-      </section>
+          <section class="connection-status" id="connection-status" hidden aria-live="polite">
+            <span class="pulse"></span>
+            <strong id="connection-message">Choose a cause note.</strong>
+            <button id="cancel-connect" type="button">Cancel</button>
+          </section>
 
-      <section class="board-shell">
-        <div class="board-summary">
-          <div><strong id="note-count">0</strong><span>notes</span></div>
-          <div><strong id="connection-count">0</strong><span>causal links</span></div>
-          <p>Click a note to inspect · drag to move stage · double-click text to edit</p>
+          <section class="board-shell">
+            <div class="board-summary">
+              <div><strong id="note-count">0</strong><span>notes</span></div>
+              <div><strong id="connection-count">0</strong><span>causal links</span></div>
+              <p>Click a note to inspect · drag to move stage · double-click text to edit</p>
+            </div>
+            <div class="board-scroll" id="board-scroll">
+              <div class="board-surface" id="board-surface">
+                <svg class="connection-layer" id="connection-layer" aria-label="Causal connections"></svg>
+                <div class="columns" id="columns"></div>
+              </div>
+            </div>
+          </section>
         </div>
-        <div class="board-scroll" id="board-scroll">
-          <div class="board-surface" id="board-surface">
-            <svg class="connection-layer" id="connection-layer" aria-label="Causal connections"></svg>
-            <div class="columns" id="columns"></div>
-          </div>
-        </div>
+        <aside class="logic-panel" id="logic-panel" hidden aria-live="polite"></aside>
       </section>
     </main>
 
