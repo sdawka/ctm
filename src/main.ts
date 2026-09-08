@@ -203,8 +203,8 @@ function renderBoard(): void {
     .map((stage) => {
       const stageNotes = canvas.notes.filter((note) => note.stageId === stage.id)
       return `
-        <section class="column" data-stage="${stage.id}" aria-labelledby="${stageHeaderId(stage.id)}">
-          <div class="column-notes" data-drop-stage="${stage.id}">
+        <section class="column" data-stage="${stage.id}" data-drop-stage="${stage.id}" aria-labelledby="${stageHeaderId(stage.id)}">
+          <div class="column-notes">
             ${stageNotes.map((note) => noteMarkup(note, ui, flow?.noteIds.has(note.id) ?? true)).join('')}
           </div>
           <button class="add-stage-note" type="button" data-add-stage="${stage.id}">+ Add note as ${escapeHtml(ui.contributorName || 'someone')}</button>
