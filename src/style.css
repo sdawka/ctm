@@ -141,9 +141,12 @@ main { min-height: 0; padding: 12px 18px 18px; overflow: hidden; }
 .note.dragging { opacity: .35; }
 
 .connection-layer { position: absolute; z-index: 3; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-.connection-path { fill: none; stroke: #7650a4; stroke-width: 2.1; stroke-linecap: round; opacity: .36; marker-end: url(#arrow); transition: opacity .18s, stroke-width .18s, stroke .18s; }
+.connection-path { fill: none; stroke: #7650a4; stroke-width: 2.1; stroke-linecap: round; opacity: .36; transition: opacity .18s, stroke-width .18s, stroke .18s; }
 .connection-path.active { opacity: .98; stroke: #5c259c; stroke-width: 4; }
 .connection-path.dimmed { opacity: .055; }
+.active-connection-layer { z-index: 8; pointer-events: none; }
+.active-connection-layer .connection-path.active { opacity: .78; stroke: #6823ad; stroke-width: 3.5; stroke-dasharray: 9 5; filter: drop-shadow(0 0 1.5px #fff); }
+.active-connection-layer .connection-label { opacity: .95; }
 .connection-label { fill: #43216e; font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; paint-order: stroke; stroke: #f7f6f1; stroke-width: 4px; stroke-linejoin: round; }
 .connections-hidden .connection-layer { display: none; }
 
@@ -161,6 +164,17 @@ dialog label { display: grid; gap: 7px; color: var(--muted); font-size: 11px; fo
 dialog input, dialog select, dialog textarea { width: 100%; border: 1px solid #aaa79e; border-radius: 10px; padding: 11px 12px; background: #fff; color: var(--ink); font-size: 14px; }
 dialog textarea { resize: vertical; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 3px; }
+.flow-controls { display: grid; gap: 6px; margin-top: 16px; font-size: 12px; }
+.flow-controls select { min-width: 0; width: 100%; min-height: 36px; padding: 6px 9px; border: 1px solid #8c8694; border-radius: 8px; background: #2c2731; color: #fff; }
+.logic-panel .flow-summary { margin-top: 9px; font-size: 12px; }
+.relation-row { display: grid; gap: 8px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,.08); }
+.relation-edit { justify-self: start; border: 1px solid #8c8694; border-radius: 6px; padding: 6px 9px; background: transparent; color: #fff; font-size: 11px; }
+.relation-endpoint { padding: 0; border: 0; background: transparent; color: inherit; font-size: 12px; text-align: left; line-height: 1.4; text-decoration: underline; text-underline-offset: 3px; }
+.relation-actions { flex-wrap: wrap; }
+.relation-row .relation-actions { display: flex; align-items: center; gap: 10px; }
+.relation-actions .danger { margin-right: auto; color: #a22532; border-color: #b9787e; }
+#relation-error { color: #a22532; font-size: 13px; margin: 0; }
+dialog select { min-width: 0; max-width: 100%; }
 
 @media (max-width: 1050px) {
   .app-bar { align-items: center; }

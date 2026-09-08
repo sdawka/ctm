@@ -46,6 +46,11 @@ export interface TheoryOfChangeCanvasDTO {
   connections: CausalConnectionDTO[]
 }
 
+export interface FlowTrace {
+  noteIds: Set<string>
+  connectionIds: Set<string>
+}
+
 export class Contributor {
   constructor(
     readonly id: string,
@@ -227,6 +232,84 @@ export class TheoryOfChangeCanvas {
     return this.copy({
       connections: this.connections.filter((connection) => connection.id !== connectionId),
     })
+  }
+
+  updateConnection(
+    connectionId: string,
+    fromNoteId: string,
+    toNoteId: string,
+    label: string,
+  ): TheoryOfChangeCanvas {
+    const existing = this.connections.find((connection) => connection.id === connectionId)
+    if (!existing) throw new Error(`Unknown connection: ${connectionId}`)
+    const trimmedLabel = label.trim()
+    if (!trimmedLabel) throw new Error('Connection label cannot be empty')
+
+    const replacement = new CausalConnection(connectionId, fromNoteId, toNoteId, trimmedLabel)
+    const source = this.note(replacement.fromNoteId)
+    const target = this.note(replacement.toNoteId)
+    if (this.stage(source.stageId).order >= this.stage(target.stageId).order) {
+      throw new Error('Connections must flow forward through the causal stages')
+    }
+    if (
+      this.connections.some(
+        (connection) =>
+          connection.id !== connectionId &&
+          connection.fromNoteId === fromNoteId &&
+          connection.toNoteId === toNoteId,
+      )
+    ) {
+      throw new Error(`Duplicate connection: ${fromNoteId} -> ${toNoteId}`)
+    }
+    return this.copy({
+      connections: this.connections.map((connection) =>
+        connection.id === connectionId ? replacement : connection,
+      ),
+    })
+  }
+
+  traceFlow(noteId: string, mode: 'full' | 'direct' = 'full'): FlowTrace {
+    this.note(noteId)
+    const noteIds = new Set([noteId])
+    const connectionIds = new Set<string>()
+    const include = (connection: CausalConnection, nextNoteId: string) => {
+      connectionIds.add(connection.id)
+      noteIds.add(nextNoteId)
+    }
+
+    if (mode === 'direct') {
+      for (const connection of this.connections) {
+        if (connection.fromNoteId === noteId) include(connection, connection.toNoteId)
+        if (connection.toNoteId === noteId) include(connection, connection.fromNoteId)
+      }
+      return { noteIds, connectionIds }
+    }
+
+    const visit = (startNoteId: string, direction: 'incoming' | 'outgoing') => {
+      const visited = new Set([startNoteId])
+      const pending = [startNoteId]
+      while (pending.length) {
+        const currentNoteId = pending.pop()!
+        for (const connection of this.connections) {
+          const matches =
+            direction === 'incoming'
+              ? connection.toNoteId === currentNoteId
+              : connection.fromNoteId === currentNoteId
+          if (!matches) continue
+          const nextNoteId =
+            direction === 'incoming' ? connection.fromNoteId : connection.toNoteId
+          include(connection, nextNoteId)
+          if (!visited.has(nextNoteId)) {
+            visited.add(nextNoteId)
+            pending.push(nextNoteId)
+          }
+        }
+      }
+    }
+
+    visit(noteId, 'incoming')
+    visit(noteId, 'outgoing')
+    return { noteIds, connectionIds }
   }
 
   connectedNoteIds(noteId: string): Set<string> {
