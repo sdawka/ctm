@@ -68,4 +68,71 @@ describe('TheoryOfChangeCanvas', () => {
     expect(restored.connections[0]).toBeInstanceOf(CausalConnection)
     expect(restored.connections[0]?.label).toBe('participate in')
   })
+
+  it('traces only directed ancestors and descendants for a selected note', () => {
+    const flowStages = [
+      new Stage('s0', 'Start', '', 0, 'green'),
+      new Stage('s1', 'Early middle', '', 1, 'yellow'),
+      new Stage('s2', 'Middle', '', 2, 'yellow'),
+      new Stage('s3', 'Outcome', '', 3, 'purple'),
+      new Stage('s4', 'Impact', '', 4, 'vision'),
+    ]
+    const flow = new TheoryOfChangeCanvas('flow', 'Flow', flowStages, people, [], [])
+      .addNote(new TheoryNote('upstream', 's0', 'Upstream', 'sahil', 'green'))
+      .addNote(new TheoryNote('origin', 's1', 'Origin', 'sahil', 'yellow'))
+      .addNote(new TheoryNote('selected', 's2', 'Selected', 'sahil', 'yellow'))
+      .addNote(new TheoryNote('sibling', 's2', 'Sibling', 'sahil', 'yellow'))
+      .addNote(new TheoryNote('co-parent', 's2', 'Co-parent', 'sahil', 'yellow'))
+      .addNote(new TheoryNote('outcome', 's3', 'Outcome', 'sahil', 'purple'))
+      .addNote(new TheoryNote('impact', 's4', 'Impact', 'sahil', 'vision'))
+      .addNote(new TheoryNote('unrelated', 's3', 'Unrelated', 'sahil', 'purple'))
+      .connect(new CausalConnection('upstream-origin', 'upstream', 'origin', 'leads to'))
+      .connect(new CausalConnection('origin-selected', 'origin', 'selected', 'leads to'))
+      .connect(new CausalConnection('selected-outcome', 'selected', 'outcome', 'leads to'))
+      .connect(new CausalConnection('outcome-impact', 'outcome', 'impact', 'leads to'))
+      .connect(new CausalConnection('origin-sibling', 'origin', 'sibling', 'also leads to'))
+      .connect(new CausalConnection('sibling-unrelated', 'sibling', 'unrelated', 'leads to'))
+      .connect(new CausalConnection('co-parent-outcome', 'co-parent', 'outcome', 'also leads to'))
+
+    const full = flow.traceFlow('selected')
+    expect(full.noteIds).toEqual(new Set(['upstream', 'origin', 'selected', 'outcome', 'impact']))
+    expect(full.connectionIds).toEqual(
+      new Set(['upstream-origin', 'origin-selected', 'selected-outcome', 'outcome-impact']),
+    )
+
+    const direct = flow.traceFlow('selected', 'direct')
+    expect(direct.noteIds).toEqual(new Set(['origin', 'selected', 'outcome']))
+    expect(direct.connectionIds).toEqual(new Set(['origin-selected', 'selected-outcome']))
+  })
+
+  it('updates a connection in place while enforcing connection invariants', () => {
+    const withNotes = canvas()
+      .addNote(new TheoryNote('a', 'audience', 'Residents', 'sahil', 'green'))
+      .addNote(new TheoryNote('b', 'activities', 'Town halls', 'sahil', 'yellow'))
+      .addNote(new TheoryNote('c', 'impact', 'Agency', 'sahil', 'purple'))
+      .addNote(new TheoryNote('d', 'activities', 'Workshops', 'sahil', 'yellow'))
+      .connect(new CausalConnection('a-b', 'a', 'b', 'enables'))
+      .connect(new CausalConnection('a-c', 'a', 'c', 'supports'))
+
+    const updated = withNotes.updateConnection('a-b', 'b', 'c', 'builds trust')
+    expect(updated.connections.find((connection) => connection.id === 'a-b')).toMatchObject({
+      fromNoteId: 'b',
+      toNoteId: 'c',
+      label: 'builds trust',
+    })
+    const restored = TheoryOfChangeCanvas.fromJSON(updated.toJSON())
+    expect(restored.connections.find((connection) => connection.id === 'a-b')).toMatchObject({
+      fromNoteId: 'b',
+      toNoteId: 'c',
+      label: 'builds trust',
+    })
+
+    expect(() => withNotes.updateConnection('missing', 'a', 'b', 'valid')).toThrow('Unknown connection')
+    expect(() => withNotes.updateConnection('a-b', 'missing', 'b', 'unknown')).toThrow('Unknown note')
+    expect(() => withNotes.updateConnection('a-b', 'b', 'a', 'backwards')).toThrow('Connections must flow forward')
+    expect(() => withNotes.updateConnection('a-b', 'b', 'd', 'same stage')).toThrow('Connections must flow forward')
+    expect(() => withNotes.updateConnection('a-b', 'a', 'a', 'self')).toThrow('cannot connect to itself')
+    expect(() => withNotes.updateConnection('a-b', 'a', 'b', '   ')).toThrow('Connection label cannot be empty')
+    expect(() => withNotes.updateConnection('a-c', 'a', 'b', 'duplicate')).toThrow('Duplicate connection')
+  })
 })

@@ -38,3 +38,5 @@ The Worker serves static assets using [Cloudflare Workers Static Assets](https:/
 - `src/main.ts` — DOM rendering and interaction wiring.
 
 Connections are domain-validated: they must point from an earlier causal stage to a later one. User additions, contributor identities, edits, moves, and new links persist in browser `localStorage`.
+
+Selecting a note brings its upstream and downstream flow above the columns. Use **Direct links** for immediate relations only. In the inspector, **Cause** and **Effect** visit a relation's endpoints; **Edit relation** changes its label or endpoints, or removes it. Invalid edits leave the saved graph unchanged.

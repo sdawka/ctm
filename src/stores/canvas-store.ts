@@ -92,6 +92,15 @@ export function createCanvasStore(seed: TheoryOfChangeCanvas, persistence: Canva
       publish($canvas.get().updateNote(noteId, text))
     },
 
+    updateConnection(
+      connectionId: string,
+      fromNoteId: string,
+      toNoteId: string,
+      label: string,
+    ): void {
+      publish($canvas.get().updateConnection(connectionId, fromNoteId, toNoteId, label))
+    },
+
     moveNote(noteId: string, stageId: string): void {
       publish($canvas.get().moveNote(noteId, stageId))
     },

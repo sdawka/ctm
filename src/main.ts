@@ -11,6 +11,7 @@ const CONTRIBUTOR_STORAGE_KEY = 'ctm-theory-of-change-contributor'
 
 interface UiState {
   selectedNoteId: string | null
+  flowMode: 'full' | 'direct'
   connectionSourceId: string | null
   connectionMode: boolean
   showConnections: boolean
@@ -26,6 +27,7 @@ const persistence = {
 const canvasStore = createCanvasStore(seedCanvas, persistence)
 const $ui = atom<UiState>({
   selectedNoteId: null,
+  flowMode: 'full',
   connectionSourceId: null,
   connectionMode: false,
   showConnections: true,
@@ -45,6 +47,7 @@ const boardScroll = element<HTMLDivElement>('#board-scroll')
 const stageHeaderViewport = element<HTMLDivElement>('#stage-header-viewport')
 const stageHeadersElement = element<HTMLDivElement>('#stage-headers')
 const svgElement = element<SVGSVGElement>('#connection-layer')
+const activeSvgElement = element<SVGSVGElement>('#active-connection-layer')
 const logicPanel = element<HTMLElement>('#logic-panel')
 const searchInput = element<HTMLInputElement>('#search')
 const workingAsInput = element<HTMLInputElement>('#working-as')
@@ -62,6 +65,16 @@ const textInput = element<HTMLTextAreaElement>('#note-text')
 const toastElement = element<HTMLElement>('#toast')
 const moreActionsButton = element<HTMLButtonElement>('#more-actions')
 const moreMenu = element<HTMLElement>('#more-menu')
+const relationDialog = element<HTMLDialogElement>('#edit-relation-dialog')
+const relationForm = element<HTMLFormElement>('#edit-relation-form')
+const relationSource = element<HTMLSelectElement>('#relation-source')
+const relationTarget = element<HTMLSelectElement>('#relation-target')
+const relationLabel = element<HTMLInputElement>('#relation-label')
+const relationError = element<HTMLElement>('#relation-error')
+const deleteRelationButton = element<HTMLButtonElement>('#delete-relation')
+
+let editingConnectionId: string | null = null
+let relationFocusConnectionId: string | null = null
 
 let toastTimer: number | undefined
 let draggingNoteId: string | null = null
@@ -112,11 +125,26 @@ function contributorName(note: TheoryNote): string {
   )
 }
 
-function noteMarkup(note: TheoryNote, ui: UiState): string {
+function tracedFlow(noteId = $ui.get().selectedNoteId) {
+  if (!noteId) return null
+  return canvasStore.$canvas.get().traceFlow(noteId, $ui.get().flowMode)
+}
+
+function stageSortedNotes(): TheoryNote[] {
+  const stageOrder = new Map(
+    canvasStore.$canvas.get().stages.map((stage) => [stage.id, stage.order]),
+  )
+  return canvasStore.$canvas
+    .get()
+    .notes.slice()
+    .sort((left, right) =>
+      (stageOrder.get(left.stageId) ?? 0) - (stageOrder.get(right.stageId) ?? 0) ||
+      left.text.localeCompare(right.text),
+    )
+}
+
+function noteMarkup(note: TheoryNote, ui: UiState, related = true): string {
   const author = contributorName(note)
-  const related = ui.selectedNoteId
-    ? canvasStore.$canvas.get().connectedNoteIds(ui.selectedNoteId).has(note.id)
-    : true
   const matches = !ui.search || `${note.text} ${author}`.toLocaleLowerCase().includes(ui.search)
   const classes = [
     'note',
@@ -151,6 +179,7 @@ function renderBoard(): void {
   const ui = $ui.get()
   const previousScroll = { left: boardScroll.scrollLeft, top: boardScroll.scrollTop }
   const stages = canvas.stages.slice().sort((left, right) => left.order - right.order)
+  const flow = tracedFlow(ui.selectedNoteId)
 
   stageHeadersElement.innerHTML = stages
     .map(
@@ -168,7 +197,7 @@ function renderBoard(): void {
       return `
         <section class="column" data-stage="${stage.id}" aria-labelledby="${stageHeaderId(stage.id)}">
           <div class="column-notes" data-drop-stage="${stage.id}">
-            ${stageNotes.map((note) => noteMarkup(note, ui)).join('')}
+            ${stageNotes.map((note) => noteMarkup(note, ui, flow?.noteIds.has(note.id) ?? true)).join('')}
           </div>
           <button class="add-stage-note" type="button" data-add-stage="${stage.id}">+ Add note as ${escapeHtml(ui.contributorName || 'someone')}</button>
         </section>`
@@ -212,7 +241,8 @@ function renderConnectionControls(): void {
 
 function renderInspector(): void {
   const canvas = canvasStore.$canvas.get()
-  const noteId = $ui.get().selectedNoteId
+  const ui = $ui.get()
+  const noteId = ui.selectedNoteId
   const selected = noteId ? noteById(noteId) : undefined
   logicPanel.hidden = !selected
   if (!selected) {
@@ -223,27 +253,90 @@ function renderInspector(): void {
     return
   }
 
-  const links = canvas.connections.filter(
-    (connection) => connection.fromNoteId === noteId || connection.toNoteId === noteId,
+  const flow = canvas.traceFlow(selected.id, ui.flowMode)
+  const stageOrder = new Map(canvas.stages.map((stage) => [stage.id, stage.order]))
+  const links = canvas.connections
+    .filter((connection) => flow.connectionIds.has(connection.id))
+    .sort((left, right) => {
+      const leftSource = noteById(left.fromNoteId)
+      const rightSource = noteById(right.fromNoteId)
+      const leftTarget = noteById(left.toNoteId)
+      const rightTarget = noteById(right.toNoteId)
+      return (
+        (stageOrder.get(leftSource?.stageId ?? '') ?? 0) -
+          (stageOrder.get(rightSource?.stageId ?? '') ?? 0) ||
+        (stageOrder.get(leftTarget?.stageId ?? '') ?? 0) -
+          (stageOrder.get(rightTarget?.stageId ?? '') ?? 0) ||
+        left.label.localeCompare(right.label)
+      )
+    })
+  const visibleNoteIds = new Set(
+    Array.from(document.querySelectorAll<HTMLElement>('.note:not(.search-hidden)'))
+      .map((element) => element.dataset.noteId)
+      .filter((id): id is string => Boolean(id)),
   )
+  const visibleFlowNotes = Array.from(flow.noteIds).filter((id) => visibleNoteIds.has(id)).length
+  const visibleFlowConnections = links.filter(
+    (connection) => visibleNoteIds.has(connection.fromNoteId) && visibleNoteIds.has(connection.toNoteId),
+  ).length
+  const flowIsFiltered = visibleFlowNotes !== flow.noteIds.size || visibleFlowConnections !== links.length
+  const relationRows = links
+    .map((connection) => {
+      const source = noteById(connection.fromNoteId)
+      const target = noteById(connection.toNoteId)
+      const sourceText = source?.text ?? 'Missing note'
+      const targetText = target?.text ?? 'Missing note'
+      return `<div class="relation-row">
+        <div><strong>${escapeHtml(shortText(sourceText, 44))}</strong><span class="logic-direction"> → </span><strong>${escapeHtml(shortText(targetText, 44))}</strong><br><span>${escapeHtml(connection.label)}</span></div>
+        <div class="relation-actions">
+          <button class="relation-endpoint" type="button" data-select-note="${escapeHtml(connection.fromNoteId)}" aria-label="Go to cause: ${escapeHtml(sourceText)}">Cause</button>
+          <button class="relation-endpoint" type="button" data-select-note="${escapeHtml(connection.toNoteId)}" aria-label="Go to effect: ${escapeHtml(targetText)}">Effect</button>
+          <button class="relation-edit" type="button" data-edit-relation="${escapeHtml(connection.id)}" aria-label="Edit relation: ${escapeHtml(connection.label)}, from ${escapeHtml(shortText(sourceText, 45))} to ${escapeHtml(shortText(targetText, 45))}">Edit relation</button>
+        </div>
+      </div>`
+    })
+    .join('')
   logicPanel.innerHTML = `
-    <p class="mono-label">Logic inspector · ${links.length} direct link${links.length === 1 ? '' : 's'}</p>
+    <p class="mono-label">Logic inspector</p>
     <button class="logic-close" type="button" data-deselect-note aria-label="Close inspector and deselect note">×</button>
     <h2>${escapeHtml(selected.text)}</h2>
     <p>Added by ${escapeHtml(contributorName(selected))}</p>
+    <div class="flow-controls">
+      <label>Flow
+        <select data-flow-mode aria-label="Relationship flow to highlight">
+          <option value="full"${ui.flowMode === 'full' ? ' selected' : ''}>Full flow</option>
+          <option value="direct"${ui.flowMode === 'direct' ? ' selected' : ''}>Direct links</option>
+        </select>
+      </label>
+      <p>Upstream causes and downstream effects.</p>
+    </div>
+    <p class="flow-summary">${visibleFlowNotes} notes · ${visibleFlowConnections} relation${visibleFlowConnections === 1 ? '' : 's'} highlighted${flowIsFiltered ? ' · search filters the rest' : ''}</p>
     <div class="logic-list">
       ${
         links.length
-          ? links
-              .map((connection) => {
-                const outgoing = connection.fromNoteId === noteId
-                const other = noteById(outgoing ? connection.toNoteId : connection.fromNoteId)
-                return `<div class="logic-link"><span class="logic-direction">${outgoing ? '→' : '←'}</span><span><strong>${escapeHtml(connection.label)}</strong><br>${escapeHtml(shortText(other?.text ?? 'Missing note', 65))}</span></div>`
-              })
-              .join('')
+          ? relationRows
           : '<div class="logic-link">No causal links yet. Use “Connect notes” to add one.</div>'
       }
     </div>`
+  logicPanel.querySelector<HTMLSelectElement>('[data-flow-mode]')?.addEventListener('change', (event) => {
+    $ui.set({ ...$ui.get(), flowMode: (event.target as HTMLSelectElement).value as UiState['flowMode'] })
+  })
+  logicPanel.querySelectorAll<HTMLButtonElement>('[data-select-note]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const targetNoteId = button.dataset.selectNote
+      if (!targetNoteId) return
+      searchInput.value = ''
+      $ui.set({ ...$ui.get(), search: '', selectedNoteId: targetNoteId })
+      requestAnimationFrame(() => {
+        revealSelectedWithinBoard()
+        Array.from(document.querySelectorAll<HTMLElement>('.note'))
+          .find((note) => note.dataset.noteId === targetNoteId)?.focus({ preventScroll: true })
+      })
+    })
+  })
+  logicPanel.querySelectorAll<HTMLButtonElement>('[data-edit-relation]').forEach((button) => {
+    button.addEventListener('click', () => openRelationDialog(button.dataset.editRelation))
+  })
   logicPanel.querySelector<HTMLButtonElement>('[data-deselect-note]')?.addEventListener('click', () => {
     const ui = $ui.get()
     const selectedElement = Array.from(document.querySelectorAll<HTMLElement>('.note')).find(
@@ -260,14 +353,56 @@ function renderInspector(): void {
 
 function renderNoteState(): void {
   const ui = $ui.get()
-  const canvas = canvasStore.$canvas.get()
+  const flow = tracedFlow(ui.selectedNoteId)
   document.querySelectorAll<HTMLElement>('.note').forEach((noteElement) => {
     const noteId = noteElement.dataset.noteId
     if (!noteId) return
-    const related = ui.selectedNoteId ? canvas.connectedNoteIds(ui.selectedNoteId).has(noteId) : true
+    const related = flow?.noteIds.has(noteId) ?? true
     noteElement.classList.toggle('selected', ui.selectedNoteId === noteId)
     noteElement.classList.toggle('connect-source', ui.connectionSourceId === noteId)
     noteElement.classList.toggle('unrelated', !related)
+  })
+}
+
+function populateRelationNoteOptions(): void {
+  const options = stageSortedNotes()
+    .map((note) => {
+      const stage = canvasStore.$canvas.get().stages.find((item) => item.id === note.stageId)
+      const description = `${stage?.title ?? 'Stage'} · ${shortText(note.text, 70)}`
+      return `<option value="${escapeHtml(note.id)}" title="${escapeHtml(note.text)}">${escapeHtml(description)}</option>`
+    })
+    .join('')
+  relationSource.innerHTML = options
+  relationTarget.innerHTML = options
+}
+
+function openRelationDialog(connectionId?: string): void {
+  const connection = canvasStore.$canvas.get().connections.find((item) => item.id === connectionId)
+  if (!connection) return
+  editingConnectionId = connection.id
+  relationFocusConnectionId = connection.id
+  populateRelationNoteOptions()
+  relationSource.value = connection.fromNoteId
+  relationTarget.value = connection.toNoteId
+  relationLabel.value = connection.label
+  relationError.hidden = true
+  relationError.textContent = ''
+  deleteRelationButton.hidden = false
+  relationDialog.showModal()
+  window.setTimeout(() => relationLabel.focus(), 0)
+}
+
+function restoreRelationFocus(): void {
+  const connectionId = relationFocusConnectionId
+  relationFocusConnectionId = null
+  requestAnimationFrame(() => {
+    const editButton = connectionId
+      ? document.querySelector<HTMLButtonElement>(`[data-edit-relation="${connectionId}"]`)
+      : undefined
+    const selectedNote = $ui.get().selectedNoteId
+      ? document.querySelector<HTMLElement>(`[data-note-id="${$ui.get().selectedNoteId}"]`)
+      : undefined
+    ;(editButton ?? selectedNote)?.focus({ preventScroll: true })
   })
 }
 
@@ -379,17 +514,31 @@ function drawConnections(): void {
   const ui = $ui.get()
   const surfaceRect = surfaceElement.getBoundingClientRect()
   const selectedId = ui.selectedNoteId
+  const flow = tracedFlow(selectedId)
+  const directFlow = selectedId
+    ? ui.flowMode === 'direct'
+      ? flow
+      : canvas.traceFlow(selectedId, 'direct')
+    : null
   const visibleNoteIds = new Set(
     Array.from(document.querySelectorAll<HTMLElement>('.note:not(.search-hidden)'))
       .map((element) => element.dataset.noteId)
       .filter((id): id is string => Boolean(id)),
   )
 
-  svgElement.setAttribute('viewBox', `0 0 ${surfaceElement.scrollWidth} ${surfaceElement.scrollHeight}`)
+  const viewBox = `0 0 ${surfaceElement.scrollWidth} ${surfaceElement.scrollHeight}`
+  svgElement.setAttribute('viewBox', viewBox)
+  activeSvgElement.setAttribute('viewBox', viewBox)
   svgElement.innerHTML = `
     <defs>
-      <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <marker id="arrow-base" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
         <path d="M 0 0 L 10 5 L 0 10 z" fill="#7650a4"></path>
+      </marker>
+    </defs>`
+  activeSvgElement.innerHTML = `
+    <defs>
+      <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#5c259c"></path>
       </marker>
     </defs>`
 
@@ -408,17 +557,17 @@ function drawConnections(): void {
       x: targetRect.left - surfaceRect.left,
       y: targetRect.top - surfaceRect.top + targetRect.height / 2,
     }
-    const active = selectedId
-      ? connection.fromNoteId === selectedId || connection.toNoteId === selectedId
-      : false
-    const dimmed = selectedId ? !active : false
+    const active = flow?.connectionIds.has(connection.id) ?? false
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
     path.setAttribute('d', connectionPath(sourcePoint, targetPoint))
-    path.setAttribute('class', `connection-path${active ? ' active' : ''}${dimmed ? ' dimmed' : ''}`)
+    path.setAttribute('class', `connection-path${active ? ' active' : ''}${selectedId && !active ? ' dimmed' : ''}`)
+    path.setAttribute('marker-end', `url(#${active ? 'arrow-active' : 'arrow-base'})`)
     path.dataset.connectionId = connection.id
-    svgElement.appendChild(path)
+    ;(active ? activeSvgElement : svgElement).appendChild(path)
 
-    if (active) drawConnectionLabel(connection, sourcePoint, targetPoint)
+    if (directFlow?.connectionIds.has(connection.id)) {
+      drawConnectionLabel(connection, sourcePoint, targetPoint, activeSvgElement)
+    }
   }
 }
 
@@ -426,6 +575,7 @@ function drawConnectionLabel(
   connection: CausalConnection,
   source: { x: number; y: number },
   target: { x: number; y: number },
+  layer: SVGSVGElement,
 ): void {
   const label = document.createElementNS('http://www.w3.org/2000/svg', 'text')
   label.setAttribute('x', String((source.x + target.x) / 2))
@@ -433,7 +583,7 @@ function drawConnectionLabel(
   label.setAttribute('text-anchor', 'middle')
   label.setAttribute('class', 'connection-label')
   label.textContent = connection.label
-  svgElement.appendChild(label)
+  layer.appendChild(label)
 }
 
 function revealSelectedWithinBoard(): void {
@@ -457,7 +607,7 @@ function revealSelectedWithinBoard(): void {
         : 0
   const topDelta =
     selectedRect.height >= availableHeight
-      ? selectedRect.top < topInset
+      ? selectedRect.top < topInset || selectedRect.top >= bottomInset
         ? selectedRect.top - topInset
         : 0
       : selectedRect.top < topInset
@@ -507,6 +657,51 @@ addForm.addEventListener('submit', (event) => {
   } catch (error) {
     showToast(error instanceof Error ? error.message : 'Could not add note')
   }
+})
+
+relationForm.addEventListener('submit', (event) => {
+  event.preventDefault()
+  if (!editingConnectionId) return
+  try {
+    canvasStore.updateConnection(
+      editingConnectionId,
+      relationSource.value,
+      relationTarget.value,
+      relationLabel.value,
+    )
+    relationDialog.close()
+    editingConnectionId = null
+    restoreRelationFocus()
+    showToast('Relation updated')
+  } catch (error) {
+    relationError.textContent = error instanceof Error ? error.message : 'Could not update relation'
+    relationError.hidden = false
+  }
+})
+
+deleteRelationButton.addEventListener('click', () => {
+  if (!editingConnectionId) return
+  const connection = canvasStore.$canvas.get().connections.find((item) => item.id === editingConnectionId)
+  if (!connection) return
+  if (!window.confirm(`Remove the relation “${connection.label}”?`)) return
+  canvasStore.removeConnection(connection.id)
+  relationDialog.close()
+  editingConnectionId = null
+  restoreRelationFocus()
+  showToast('Relation removed')
+})
+
+document.querySelectorAll<HTMLButtonElement>('[data-close-relation]').forEach((button) => {
+  button.addEventListener('click', () => {
+    relationDialog.close()
+    editingConnectionId = null
+    restoreRelationFocus()
+  })
+})
+relationDialog.addEventListener('close', () => {
+  relationError.hidden = true
+  editingConnectionId = null
+  if (relationFocusConnectionId) restoreRelationFocus()
 })
 
 workingAsInput.addEventListener('change', () => {

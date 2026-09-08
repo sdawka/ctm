@@ -5,3 +5,4 @@
 - 2026-09-07T20:37:32-04:00 — Merge the completed changes and deploy them.
 - 2026-09-07T21:26:39-04:00 — Reconsider the canvas layout from first principles: column headers still behave incorrectly during vertical scrolling, and the overall canvas header wastes space.
 - 2026-09-07T21:34:43-04:00 — Review the header simplification, then merge and deploy it.
+- 2026-09-07T21:46:41-04:00 — Bring selected causal edges temporarily above columns, show the full flow, and provide controls for changing relations; translucent or dashed edges are acceptable.

@@ -52,4 +52,30 @@ describe('canvas nanostore', () => {
     expect(store.$canvas.get().connections).toHaveLength(1)
     expect(store.$canvas.get().connections[0]?.label).toBe('participate in')
   })
+
+  it('persists one successful connection update and leaves state untouched after a rejected update', () => {
+    let writes = 0
+    const store = createCanvasStore(initialCanvas(), {
+      load: () => null,
+      save: () => {
+        writes += 1
+      },
+    })
+    const connection = store.connectNotes('a', 'b', 'participate in')
+    writes = 0
+
+    store.updateConnection(connection.id, 'a', 'b', 'builds trust')
+    expect(writes).toBe(1)
+    expect(store.$canvas.get().connections[0]).toMatchObject({
+      id: connection.id,
+      label: 'builds trust',
+    })
+
+    const before = store.$canvas.get().toJSON()
+    expect(() => store.updateConnection(connection.id, 'b', 'a', 'backwards')).toThrow(
+      'Connections must flow forward',
+    )
+    expect(writes).toBe(1)
+    expect(store.$canvas.get().toJSON()).toEqual(before)
+  })
 })

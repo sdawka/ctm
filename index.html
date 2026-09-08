@@ -56,6 +56,7 @@
             <div class="board-scroll" id="board-scroll">
               <div class="board-surface" id="board-surface">
                 <svg class="connection-layer" id="connection-layer" aria-label="Causal connections"></svg>
+                <svg class="connection-layer active-connection-layer" id="active-connection-layer" aria-label="Selected causal flow"></svg>
                 <div class="columns" id="columns"></div>
               </div>
             </div>
@@ -101,6 +102,24 @@
         <div class="dialog-actions">
           <button class="button" value="cancel" formmethod="dialog">Cancel</button>
           <button class="button primary" value="default" type="submit">Add to canvas</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="edit-relation-dialog" aria-labelledby="edit-relation-title">
+      <form id="edit-relation-form">
+        <div class="dialog-head">
+          <h2 id="edit-relation-title">Edit relation</h2>
+          <button class="icon-button" type="button" data-close-relation aria-label="Close relation editor">×</button>
+        </div>
+        <label>Cause<select id="relation-source" required></select></label>
+        <label>Relation<input id="relation-label" required placeholder="e.g. enables" /></label>
+        <label>Effect<select id="relation-target" required></select></label>
+        <p id="relation-error" role="alert" hidden></p>
+        <div class="dialog-actions relation-actions">
+          <button class="button danger" id="delete-relation" type="button">Remove relation</button>
+          <button class="button" type="button" data-close-relation>Cancel</button>
+          <button class="button primary" type="submit">Save relation</button>
         </div>
       </form>
     </dialog>
