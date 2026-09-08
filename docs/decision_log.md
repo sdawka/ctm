@@ -6,3 +6,4 @@
 - 2026-09-07T21:26:39-04:00 — Reconsider the canvas layout from first principles: column headers still behave incorrectly during vertical scrolling, and the overall canvas header wastes space.
 - 2026-09-07T21:34:43-04:00 — Review the header simplification, then merge and deploy it.
 - 2026-09-07T21:46:41-04:00 — Bring selected causal edges temporarily above columns, show the full flow, and provide controls for changing relations; translucent or dashed edges are acceptable.
+- 2026-09-07T22:10:10-04:00 — Make sidebar text smaller and easier to scan; show the logical statement when multiple cards in a flow are selected. Use masonry to avoid blank space in notes, implemented efficiently with CSS.

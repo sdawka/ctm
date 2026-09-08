@@ -40,3 +40,5 @@ The Worker serves static assets using [Cloudflare Workers Static Assets](https:/
 Connections are domain-validated: they must point from an earlier causal stage to a later one. User additions, contributor identities, edits, moves, and new links persist in browser `localStorage`.
 
 Selecting a note brings its upstream and downstream flow above the columns. Use **Direct links** for immediate relations only. In the inspector, **Cause** and **Effect** visit a relation's endpoints; **Edit relation** changes its label or endpoints, or removes it. Invalid edits leave the saved graph unchanged.
+
+Shift-click cards (or enable **Select multiple**) to inspect the causal statement connecting them, including intermediate notes. Cards use CSS masonry columns with natural heights.

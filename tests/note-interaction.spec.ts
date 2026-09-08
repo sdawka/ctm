@@ -9,6 +9,55 @@ describe('note interaction', () => {
     )
 
     expect(selected.selectedNoteId).toBe('note-1')
+    expect(selected.selectedNoteIds).toEqual(['note-1'])
+  })
+
+  it('toggles extra selections and keeps a remaining note as the primary selection', () => {
+    const added = selectNote(
+      {
+        selectedNoteId: 'note-1',
+        selectedNoteIds: ['note-1'],
+        connectionSourceId: null,
+        connectionMode: false,
+      },
+      'note-2',
+      { toggle: true },
+    )
+    const removedPrimary = selectNote(added, 'note-2', { toggle: true })
+    const removedLast = selectNote(removedPrimary, 'note-1', { toggle: true })
+
+    expect(added).toMatchObject({ selectedNoteId: 'note-2', selectedNoteIds: ['note-1', 'note-2'] })
+    expect(removedPrimary).toMatchObject({ selectedNoteId: 'note-1', selectedNoteIds: ['note-1'] })
+    expect(removedLast).toMatchObject({ selectedNoteId: null, selectedNoteIds: [] })
+  })
+
+  it('replaces the selection without a modifier when multi-select mode is off', () => {
+    const selected = selectNote(
+      {
+        selectedNoteId: 'note-2',
+        selectedNoteIds: ['note-1', 'note-2'],
+        connectionSourceId: null,
+        connectionMode: false,
+      },
+      'note-3',
+    )
+
+    expect(selected).toMatchObject({ selectedNoteId: 'note-3', selectedNoteIds: ['note-3'] })
+  })
+
+  it('adds selections without a modifier while multi-select mode is enabled', () => {
+    const selected = selectNote(
+      {
+        selectedNoteId: 'note-1',
+        selectedNoteIds: ['note-1'],
+        multiSelectMode: true,
+        connectionSourceId: null,
+        connectionMode: false,
+      },
+      'note-2',
+    )
+
+    expect(selected).toMatchObject({ selectedNoteId: 'note-2', selectedNoteIds: ['note-1', 'note-2'] })
   })
 
   it('treats Enter and Space as card activation keys', () => {
