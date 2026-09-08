@@ -8,3 +8,4 @@
 - 2026-09-07T21:46:41-04:00 — Bring selected causal edges temporarily above columns, show the full flow, and provide controls for changing relations; translucent or dashed edges are acceptable.
 - 2026-09-07T22:10:10-04:00 — Make sidebar text smaller and easier to scan; show the logical statement when multiple cards in a flow are selected. Use masonry to avoid blank space in notes, implemented efficiently with CSS.
 - 2026-09-07T22:21:41-04:00 — Review and merge the pending flow, sidebar, and masonry changes.
+- 2026-09-07T22:28:37-04:00 — Make sdawka/ctm public, including its Git history.
