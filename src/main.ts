@@ -4,6 +4,7 @@ import { seedCanvas } from './data/seed'
 import type { CausalConnection, NoteColor, TheoryNote } from './domain/models'
 import { createCanvasStore } from './stores/canvas-store'
 import { connectionPath } from './ui/connection-geometry'
+import { isNoteActivationKey, selectNote } from './ui/note-interaction'
 
 const CANVAS_STORAGE_KEY = 'ctm-theory-of-change-canvas-v2'
 const CONTRIBUTOR_STORAGE_KEY = 'ctm-theory-of-change-contributor'
@@ -40,6 +41,7 @@ function element<T extends Element>(selector: string): T {
 
 const columnsElement = element<HTMLDivElement>('#columns')
 const surfaceElement = element<HTMLDivElement>('#board-surface')
+const boardScroll = element<HTMLDivElement>('#board-scroll')
 const svgElement = element<SVGSVGElement>('#connection-layer')
 const logicPanel = element<HTMLElement>('#logic-panel')
 const searchInput = element<HTMLInputElement>('#search')
@@ -123,9 +125,9 @@ function noteMarkup(note: TheoryNote, ui: UiState): string {
     .join(' ')
 
   return `
-    <article class="${classes}" draggable="true" data-note-id="${note.id}" data-color="${note.color}" tabindex="0" aria-label="${escapeHtml(shortText(note.text))}">
+    <article class="${classes}" draggable="true" data-note-id="${note.id}" data-color="${note.color}" tabindex="0" aria-label="${escapeHtml(shortText(note.text))}. Press F2 or double-click the text to edit.">
       ${note.needsReview ? '<span class="review-dot" title="OCR wording needs review"></span>' : ''}
-      <div class="note-text" contenteditable="true" role="textbox" aria-label="Edit note">${escapeHtml(note.text)}</div>
+      <div class="note-text" contenteditable="false" role="textbox" aria-label="Note text. Double-click to edit.">${escapeHtml(note.text)}</div>
       <footer class="note-meta"><span class="avatar">${escapeHtml(initials(author))}</span><span>${escapeHtml(author)}</span></footer>
     </article>`
 }
@@ -133,8 +135,7 @@ function noteMarkup(note: TheoryNote, ui: UiState): string {
 function renderBoard(): void {
   const canvas = canvasStore.$canvas.get()
   const ui = $ui.get()
-  const scroll = element<HTMLDivElement>('#board-scroll')
-  const previousScroll = { left: scroll.scrollLeft, top: scroll.scrollTop }
+  const previousScroll = { left: boardScroll.scrollLeft, top: boardScroll.scrollTop }
 
   columnsElement.innerHTML = canvas.stages
     .slice()
@@ -163,7 +164,7 @@ function renderBoard(): void {
   renderInspector()
   bindBoardEvents()
 
-  scroll.scrollTo(previousScroll)
+  boardScroll.scrollTo(previousScroll)
   requestAnimationFrame(drawConnections)
 }
 
@@ -192,6 +193,7 @@ function renderInspector(): void {
   const canvas = canvasStore.$canvas.get()
   const noteId = $ui.get().selectedNoteId
   const selected = noteId ? noteById(noteId) : undefined
+  logicPanel.hidden = !selected
   if (!selected) {
     logicPanel.innerHTML = `
       <p class="mono-label">Logic inspector</p>
@@ -205,7 +207,8 @@ function renderInspector(): void {
   )
   logicPanel.innerHTML = `
     <p class="mono-label">Logic inspector · ${links.length} direct link${links.length === 1 ? '' : 's'}</p>
-    <h2>${escapeHtml(shortText(selected.text, 95))}</h2>
+    <button class="logic-close" type="button" data-deselect-note aria-label="Close inspector and deselect note">×</button>
+    <h2>${escapeHtml(selected.text)}</h2>
     <p>Added by ${escapeHtml(contributorName(selected))}</p>
     <div class="logic-list">
       ${
@@ -220,6 +223,31 @@ function renderInspector(): void {
           : '<div class="logic-link">No causal links yet. Use “Connect notes” to add one.</div>'
       }
     </div>`
+  logicPanel.querySelector<HTMLButtonElement>('[data-deselect-note]')?.addEventListener('click', () => {
+    const ui = $ui.get()
+    const selectedElement = Array.from(document.querySelectorAll<HTMLElement>('.note')).find(
+      (note) => note.dataset.noteId === noteId,
+    )
+    $ui.set({
+      ...ui,
+      selectedNoteId: null,
+      connectionSourceId: ui.connectionSourceId === noteId ? null : ui.connectionSourceId,
+    })
+    selectedElement?.focus({ preventScroll: true })
+  })
+}
+
+function renderNoteState(): void {
+  const ui = $ui.get()
+  const canvas = canvasStore.$canvas.get()
+  document.querySelectorAll<HTMLElement>('.note').forEach((noteElement) => {
+    const noteId = noteElement.dataset.noteId
+    if (!noteId) return
+    const related = ui.selectedNoteId ? canvas.connectedNoteIds(ui.selectedNoteId).has(noteId) : true
+    noteElement.classList.toggle('selected', ui.selectedNoteId === noteId)
+    noteElement.classList.toggle('connect-source', ui.connectionSourceId === noteId)
+    noteElement.classList.toggle('unrelated', !related)
+  })
 }
 
 function bindBoardEvents(): void {
@@ -228,25 +256,23 @@ function bindBoardEvents(): void {
     if (!noteId) return
 
     noteElement.addEventListener('click', (event) => {
-      if ((event.target as Element).closest('.note-text') && document.activeElement === event.target) {
-        return
-      }
+      const textTarget = (event.target as Element).closest<HTMLElement>('.note-text')
+      if (textTarget?.contentEditable === 'true' || (textTarget && event.detail > 1)) return
       handleNoteSelection(noteId)
     })
     noteElement.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && !(event.target as Element).classList.contains('note-text')) {
+      if (event.target === noteElement && event.key === 'F2') {
+        event.preventDefault()
+        const text = noteElement.querySelector<HTMLElement>('.note-text')
+        if (!$ui.get().connectionMode && text) {
+          text.contentEditable = 'true'
+          text.focus()
+        }
+        return
+      }
+      if (event.target === noteElement && isNoteActivationKey(event.key)) {
         event.preventDefault()
         handleNoteSelection(noteId)
-      }
-    })
-    noteElement.addEventListener('mouseenter', () => {
-      if (!$ui.get().selectedNoteId && !$ui.get().connectionMode) {
-        $ui.set({ ...$ui.get(), selectedNoteId: noteId })
-      }
-    })
-    noteElement.addEventListener('mouseleave', () => {
-      if (!$ui.get().connectionMode && $ui.get().selectedNoteId === noteId) {
-        $ui.set({ ...$ui.get(), selectedNoteId: null })
       }
     })
     noteElement.addEventListener('dragstart', () => {
@@ -259,7 +285,12 @@ function bindBoardEvents(): void {
       document.querySelectorAll('.drop-target').forEach((item) => item.classList.remove('drop-target'))
     })
     const text = noteElement.querySelector<HTMLElement>('.note-text')
-    text?.addEventListener('click', (event) => event.stopPropagation())
+    text?.addEventListener('dblclick', (event) => {
+      event.preventDefault()
+      if ($ui.get().connectionMode) return
+      text.contentEditable = 'true'
+      text.focus()
+    })
     text?.addEventListener('blur', () => {
       const value = text.innerText.trim()
       const current = noteById(noteId)
@@ -270,6 +301,7 @@ function bindBoardEvents(): void {
         text.textContent = current.text
         showToast('A note cannot be empty')
       }
+      text.contentEditable = 'false'
     })
   })
 
@@ -301,20 +333,20 @@ function bindBoardEvents(): void {
 function handleNoteSelection(noteId: string): void {
   const ui = $ui.get()
   if (!ui.connectionMode) {
-    $ui.set({ ...ui, selectedNoteId: ui.selectedNoteId === noteId ? null : noteId })
+    $ui.set(selectNote(ui, noteId))
     return
   }
   if (!ui.connectionSourceId) {
-    $ui.set({ ...ui, connectionSourceId: noteId, selectedNoteId: noteId })
+    $ui.set(selectNote(ui, noteId))
     return
   }
   if (ui.connectionSourceId === noteId) {
-    $ui.set({ ...ui, connectionSourceId: null, selectedNoteId: null })
+    $ui.set(selectNote(ui, noteId))
     return
   }
   try {
     canvasStore.connectNotes(ui.connectionSourceId, noteId, 'contributes to')
-    $ui.set({ ...ui, connectionSourceId: null, selectedNoteId: noteId })
+    $ui.set(selectNote(ui, noteId))
     showToast('Causal connection added')
   } catch (error) {
     showToast(error instanceof Error ? error.message : 'Could not connect notes')
@@ -381,6 +413,41 @@ function drawConnectionLabel(
   label.setAttribute('class', 'connection-label')
   label.textContent = connection.label
   svgElement.appendChild(label)
+}
+
+function revealSelectedWithinBoard(): void {
+  const selectedId = $ui.get().selectedNoteId
+  if (!selectedId) return
+  const selected = Array.from(document.querySelectorAll<HTMLElement>('.note')).find(
+    (note) => note.dataset.noteId === selectedId,
+  )
+  if (!selected || selected.classList.contains('search-hidden')) return
+
+  const selectedRect = selected.getBoundingClientRect()
+  const boardRect = boardScroll.getBoundingClientRect()
+  const header = selected.closest('.column')?.querySelector<HTMLElement>('.column-head')
+  const topInset = Math.max(boardRect.top, header?.getBoundingClientRect().bottom ?? boardRect.top) + 16
+  const bottomInset = boardRect.bottom - 16
+  const availableHeight = bottomInset - topInset
+  const leftDelta =
+    selectedRect.left < boardRect.left
+      ? selectedRect.left - boardRect.left
+      : selectedRect.right > boardRect.right
+        ? selectedRect.right - boardRect.right
+        : 0
+  const topDelta =
+    selectedRect.height >= availableHeight
+      ? selectedRect.top < topInset
+        ? selectedRect.top - topInset
+        : 0
+      : selectedRect.top < topInset
+        ? selectedRect.top - topInset
+        : selectedRect.bottom > bottomInset
+          ? selectedRect.bottom - bottomInset
+          : 0
+  if (leftDelta || topDelta) {
+    boardScroll.scrollBy({ left: leftDelta, top: topDelta, behavior: 'instant' })
+  }
 }
 
 function openAddDialog(stageId?: string): void {
@@ -470,9 +537,29 @@ stageSelect.addEventListener('change', () => {
   const stage = canvasStore.$canvas.get().stages.find((item) => item.id === stageSelect.value)
   colorSelect.value = stage?.defaultColor === 'vision' ? 'purple' : (stage?.defaultColor ?? 'yellow')
 })
-element<HTMLDivElement>('#board-scroll').addEventListener('scroll', () => requestAnimationFrame(drawConnections))
+boardScroll.addEventListener('scroll', () => requestAnimationFrame(drawConnections))
 window.addEventListener('resize', () => requestAnimationFrame(drawConnections))
+new ResizeObserver(() => {
+  revealSelectedWithinBoard()
+  requestAnimationFrame(drawConnections)
+}).observe(boardScroll)
 
 populateStageSelect()
 canvasStore.$canvas.subscribe(() => renderBoard())
-$ui.subscribe(() => renderBoard())
+
+let previousUi: UiState | undefined
+$ui.subscribe((ui) => {
+  const requiresBoardRender =
+    !previousUi ||
+    ui.search !== previousUi.search ||
+    ui.contributorName !== previousUi.contributorName
+  previousUi = ui
+  if (requiresBoardRender) {
+    renderBoard()
+    return
+  }
+  renderNoteState()
+  renderConnectionControls()
+  renderInspector()
+  requestAnimationFrame(drawConnections)
+})
