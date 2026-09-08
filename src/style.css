@@ -87,8 +87,8 @@ main { min-height: 0; padding: 12px 18px 18px; overflow: hidden; }
 .logic-panel { min-height: 0; overflow: auto; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: #171717; color: #fff; box-shadow: 0 3px 12px rgba(0,0,0,.035); }
 .logic-panel[hidden] { display: none; }
 .logic-panel .mono-label, .logic-panel p { color: rgba(255,255,255,.65); }
-.logic-panel h2 { margin: 6px 0 8px; font-size: 24px; line-height: 1.08; letter-spacing: -.04em; }
-.logic-panel p { margin: 0; font-size: 13px; line-height: 1.45; }
+.logic-panel h2 { margin: 6px 0 8px; font-size: 16px; line-height: 1.35; letter-spacing: -.015em; font-weight: 650; }
+.logic-panel p { margin: 0; font-size: 12px; line-height: 1.5; }
 .logic-list { display: grid; gap: 7px; margin-top: 13px; }
 .logic-link { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; background: rgba(255,255,255,.1); color: #fff; font-size: 11px; }
 .logic-direction { color: #bf91ff; font-weight: 800; }
@@ -115,12 +115,12 @@ main { min-height: 0; padding: 12px 18px 18px; overflow: hidden; }
 .column[data-stage="impact"] { background: color-mix(in srgb, var(--lavender) 76%, white); }
 .column[data-stage="longterm"] { background: color-mix(in srgb, var(--blue) 76%, white); }
 .column[data-stage="ultimate"] { background: color-mix(in srgb, var(--purple) 70%, white); }
-.column-notes { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); align-content: start; gap: 12px; flex: 1; padding: 16px; }
-.column[data-stage="audience"] .column-notes, .column[data-stage="ultimate"] .column-notes { grid-template-columns: 1fr; }
+.column-notes { column-count: 2; column-gap: 12px; flex: 0 0 auto; padding: 16px; }
+.column[data-stage="audience"] .column-notes, .column[data-stage="ultimate"] .column-notes { column-count: 1; }
 .column.drop-target { outline: 3px dashed #111; outline-offset: -7px; }
 .add-stage-note { margin: 0 16px 16px; min-height: 42px; border: 1px dashed rgba(0,0,0,.45); border-radius: 10px; background: rgba(255,255,255,.48); color: var(--muted); font-size: 12px; font-weight: 650; }
 
-.note { position: relative; z-index: 4; min-height: 120px; padding: 15px 14px 34px; border: 1px solid rgba(0,0,0,.14); border-radius: 7px; background: var(--yellow-note); box-shadow: 0 5px 14px rgba(31,30,25,.12), 0 1px 2px rgba(31,30,25,.1); transition: opacity .18s, transform .18s, box-shadow .18s, filter .18s; }
+.note { position: relative; z-index: 4; break-inside: avoid; margin-bottom: 12px; padding: 14px; border: 1px solid rgba(0,0,0,.14); border-radius: 7px; background: var(--yellow-note); box-shadow: 0 5px 14px rgba(31,30,25,.12), 0 1px 2px rgba(31,30,25,.1); transition: opacity .18s, transform .18s, box-shadow .18s, filter .18s; }
 .note:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(31,30,25,.17); }
 .note[data-color="blue"] { background: var(--blue-note); }
 .note[data-color="teal"] { background: var(--teal-note); }
@@ -128,10 +128,10 @@ main { min-height: 0; padding: 12px 18px 18px; overflow: hidden; }
 .note[data-color="orange"] { background: var(--orange-note); }
 .note[data-color="gray"] { background: var(--gray-note); }
 .note[data-color="green"] { background: var(--green-note); }
-.note[data-color="vision"] { min-height: 390px; display: flex; align-items: center; padding: 28px; border-radius: 14px; background: #a96cea; }
+.note[data-color="vision"] { padding: 22px; border-radius: 14px; background: #a96cea; }
 .note-text { white-space: pre-line; font-size: 12px; line-height: 1.38; letter-spacing: -.012em; }
 .note[data-color="vision"] .note-text { font-size: 28px; line-height: 1.1; letter-spacing: -.05em; font-weight: 580; }
-.note-meta { position: absolute; inset: auto 11px 9px; display: flex; align-items: center; gap: 6px; color: rgba(0,0,0,.56); font-size: 9px; }
+.note-meta { display: flex; align-items: center; gap: 6px; margin-top: 12px; color: rgba(0,0,0,.56); font-size: 9px; }
 .avatar { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.62); border: 1px solid rgba(0,0,0,.12); font-size: 7px; font-weight: 800; }
 .review-dot { position: absolute; top: 8px; right: 8px; width: 9px; height: 9px; border-radius: 50%; background: #ff5f46; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
 .note.selected { outline: 3px solid #171717; outline-offset: 3px; z-index: 7; }
@@ -167,7 +167,13 @@ dialog textarea { resize: vertical; }
 .flow-controls { display: grid; gap: 6px; margin-top: 16px; font-size: 12px; }
 .flow-controls select { min-width: 0; width: 100%; min-height: 36px; padding: 6px 9px; border: 1px solid #8c8694; border-radius: 8px; background: #2c2731; color: #fff; }
 .logic-panel .flow-summary { margin-top: 9px; font-size: 12px; }
-.relation-row { display: grid; gap: 8px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,.08); }
+.relation-row { display: grid; gap: 8px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.08); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.relation-row strong { font-weight: 550; }
+.statement-relation { color: #d5afff; font-weight: 700; }
+.multi-select-control { display: flex; align-items: center; gap: 8px; margin: 12px 0 6px; font-size: 12px; }
+.selection-hint { font-size: 11px !important; }
+.selection-summary { padding-left: 18px; font-size: 12px; line-height: 1.5; }
+.selection-summary li + li { margin-top: 6px; }
 .relation-edit { justify-self: start; border: 1px solid #8c8694; border-radius: 6px; padding: 6px 9px; background: transparent; color: #fff; font-size: 11px; }
 .relation-endpoint { padding: 0; border: 0; background: transparent; color: inherit; font-size: 12px; text-align: left; line-height: 1.4; text-decoration: underline; text-underline-offset: 3px; }
 .relation-actions { flex-wrap: wrap; }
@@ -206,7 +212,7 @@ dialog select { min-width: 0; max-width: 100%; }
   main { overflow: auto; }
   .workspace:has(.logic-panel:not([hidden])) { grid-template-rows: minmax(0, 1fr) minmax(0, 24dvh); }
   .logic-panel { padding: 11px 14px; }
-  .logic-panel h2 { font-size: 18px; }
+  .logic-panel h2 { font-size: 16px; }
   .logic-list { margin-top: 8px; }
 }
 @media print {
